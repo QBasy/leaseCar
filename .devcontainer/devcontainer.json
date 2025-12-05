@@ -1,0 +1,9 @@
+{
+  "name": "car-leasing-dev",
+  "image": "mcr.microsoft.com/devcontainers/base:ubuntu",
+  "features": {
+    "docker-in-docker": "latest"
+  },
+  "postCreateCommand": "bash .devcontainer/setup.sh",
+  "forwardPorts": [3000, 4000, 5432, 6379]
+}

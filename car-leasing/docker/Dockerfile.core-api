@@ -1,0 +1,29 @@
+# Build stage
+FROM node:20-alpine AS builder
+
+WORKDIR /build
+
+COPY core-api/package*.json ./
+
+RUN npm ci
+
+COPY core-api/src ./src
+COPY core-api/tsconfig.json ./
+
+RUN npm run build
+
+# Runtime stage
+FROM node:20-alpine
+
+WORKDIR /app
+
+COPY --from=builder /build/dist ./dist
+COPY --from=builder /build/node_modules ./node_modules
+COPY --from=builder /build/package.json ./
+
+EXPOSE 3000
+
+HEALTHCHECK --interval=10s --timeout=5s --retries=3 \
+  CMD node -e "require('http').get('http://localhost:3000/health', (r) => {if (r.statusCode !== 200) throw new Error(r.statusCode)})"
+
+CMD ["node", "dist/main.js"]

@@ -1,0 +1,176 @@
+version: '3.9'
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: leasing_postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./migrations:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - leasing_network
+
+  redis:
+    image: redis:7-alpine
+    container_name: leasing_redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - leasing_network
+
+  meilisearch:
+    image: getmeili/meilisearch:v1.5
+    container_name: leasing_meilisearch
+    environment:
+      MEILI_MASTER_KEY: ${MEILISEARCH_API_KEY}
+    ports:
+      - "7700:7700"
+    volumes:
+      - meilisearch_data:/meili_data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:7700/health"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - leasing_network
+
+  core-api:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.core-api
+    container_name: leasing_core_api
+    environment:
+      NODE_ENV: development
+      FASTIFY_PORT: ${FASTIFY_PORT}
+      JWT_SECRET: ${JWT_SECRET}
+      SESSION_SECRET: ${SESSION_SECRET}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      MEILISEARCH_URL: http://meilisearch:7700
+    ports:
+      - "${FASTIFY_PORT}:3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      meilisearch:
+        condition: service_healthy
+    networks:
+      - leasing_network
+    volumes:
+      - ./core-api/src:/app/src
+      - ./configs/core-api.yaml:/app/config/config.yaml
+
+  lease-service:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.lease-service
+    container_name: leasing_lease_service
+    environment:
+      LEASE_SERVICE_PORT: ${LEASE_SERVICE_PORT}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      MEILISEARCH_URL: http://meilisearch:7700
+    ports:
+      - "${LEASE_SERVICE_PORT}:3001"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      meilisearch:
+        condition: service_healthy
+    networks:
+      - leasing_network
+    volumes:
+      - ./lease-service:/app
+      - ./configs/lease-service.yaml:/app/config/config.yaml
+      - /app/bin
+
+  payment-service:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.payment-service
+    container_name: leasing_payment_service
+    environment:
+      PAYMENT_SERVICE_PORT: ${PAYMENT_SERVICE_PORT}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      STRIPE_API_KEY: ${STRIPE_API_KEY}
+      BANK_API_URL: ${BANK_API_URL}
+      BANK_API_KEY: ${BANK_API_KEY}
+    ports:
+      - "${PAYMENT_SERVICE_PORT}:3002"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - leasing_network
+    volumes:
+      - ./payment-service:/app
+      - ./configs/payment-service.yaml:/app/config/config.yaml
+      - /app/bin
+
+  blockchain-service:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.blockchain-service
+    container_name: leasing_blockchain_service
+    environment:
+      BLOCKCHAIN_SERVICE_PORT: ${BLOCKCHAIN_SERVICE_PORT}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      TON_API_URL: ${TON_API_URL}
+      TON_WALLET_ADDRESS: ${TON_WALLET_ADDRESS}
+      TON_PRIVATE_KEY: ${TON_PRIVATE_KEY}
+    ports:
+      - "${BLOCKCHAIN_SERVICE_PORT}:3003"
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - leasing_network
+    volumes:
+      - ./blockchain-service:/app
+      - ./configs/blockchain-service.yaml:/app/config/config.yaml
+      - /app/bin
+
+volumes:
+  postgres_data:
+  redis_data:
+  meilisearch_data:
+
+networks:
+  leasing_network:
+    driver: bridge

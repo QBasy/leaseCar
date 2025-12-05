@@ -1,0 +1,17 @@
+server:
+  host: "0.0.0.0"
+  port: 3003
+
+redis:
+  host: "redis"
+  port: 6379
+  password: ""
+  db: 0
+
+blockchain:
+  ton:
+    api_url: "${TON_API_URL:https://toncenter.com/api/v2}"
+    wallet_address: "${TON_WALLET_ADDRESS:}"
+    private_key: "${TON_PRIVATE_KEY:}"
+    workchain: 0
+    network: "testnet"

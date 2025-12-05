@@ -1,0 +1,29 @@
+server:
+  host: "0.0.0.0"
+  port: 3000
+
+database:
+  host: "postgres"
+  port: 5432
+  user: "${POSTGRES_USER:leasing_user}"
+  password: "${POSTGRES_PASSWORD:secure_pass}"
+  db_name: "${POSTGRES_DB:leasing_db}"
+  ssl_mode: "disable"
+
+redis:
+  host: "redis"
+  port: 6379
+  password: ""
+  db: 0
+
+meilisearch:
+  url: "http://meilisearch:7700"
+  api_key: "${MEILISEARCH_API_KEY:}"
+
+jwt:
+  secret: "${JWT_SECRET:your-secret-key-change-in-prod}"
+  expiration: 86400
+
+session:
+  secret: "${SESSION_SECRET:session-secret-change-in-prod}"
+  expiration: 3600
